@@ -189,9 +189,19 @@ a.back-link:hover {
     <h1>Review for <?= htmlspecialchars($movie['title']); ?></h1>
     <img src="https://image.tmdb.org/t/p/w300<?= $movie['poster_path']; ?>" alt="<?= htmlspecialchars($movie['title']); ?>">
 
+    <form method="POST">
+        <textarea name="review" placeholder="Write your review here..." required></textarea>
+        <button type="submit">Submit Review</button>
+    </form>
 
-<a href="dashboard.php" class="back-link">Back to Dashboard</a>
+    <?php if(!empty($message)): ?>
+        <div class="message <?= strpos($message, 'successfully') !== false ? 'success' : 'warning' ?>">
+            <?= $message ?>
+        </div>
+    <?php endif; ?>
 
-</div>
+    <a href="dashboard.php" class="back-link">Back to Dashboard</a>
+
+</div>  
 </body>
 </html>
