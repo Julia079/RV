@@ -23,7 +23,7 @@ $movies = json_decode($movies_json, true)['results'];
     <style>
         body {
             font-family: 'Montserrat', sans-serif;
-            background: linear-gradient(to right, #dd353d, #210b0c);
+            background: linear-gradient(to right, #210b0c, #dd353d, #210b0c);
             margin: 0;
             padding: 0;
             min-height: 100vh;
