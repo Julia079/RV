@@ -20,6 +20,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } else {
         $stmt->bind_result($id, $username, $hashed);
         $stmt->fetch();
+        $hashed = $hashed ?? ''; // Ensure $hashed is a string
 
         if(password_verify($password, $hashed)){
             $_SESSION['user_id'] = $id;
