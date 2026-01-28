@@ -10,17 +10,39 @@ if(!isset($_SESSION['user_id'])){
 $api_key = "1163142a130a2e01a5fb73752ac05995"; // Your API Key
 $search_query = isset($_GET['search']) ? urlencode($_GET['search']) : '';
 
-if (!empty($search_query)) {
-    // URL for searching specific movies
-    $tmdb_url = "https://api.themoviedb.org/3/search/movie?api_key=$api_key&query=$search_query&language=en-US&page=1";
-} else {
-    // Default URL for popular movies
-    $tmdb_url = "https://api.themoviedb.org/3/movie/popular?api_key=$api_key&language=en-US&page=1";
+// Helper function to fetch data
+function fetchTmdbMovies($url) {
+    $json = @file_get_contents($url);
+    if ($json === FALSE) return [];
+    $data = json_decode($json, true);
+    return isset($data['results']) ? $data['results'] : [];
 }
 
-$movies_json = file_get_contents($tmdb_url);
-$movies_data = json_decode($movies_json, true);
-$movies = isset($movies_data['results']) ? $movies_data['results'] : [];
+// Initialize arrays
+$now_playing_movies = []; // THE PRESENT
+$top_rated_movies = [];   // THE BEST (Replaces redundant "Popular")
+$upcoming_movies = [];    // THE FUTURE
+$search_results = [];
+
+if (!empty($search_query)) {
+    // 1. SEARCH MODE
+    $url = "https://api.themoviedb.org/3/search/movie?api_key=$api_key&query=$search_query&language=en-US&page=1";
+    $search_results = fetchTmdbMovies($url);
+} else {
+    // 2. DASHBOARD MODE (Distinct Categories)
+    
+    // In Theaters Now
+    $url_now = "https://api.themoviedb.org/3/movie/now_playing?api_key=$api_key&language=en-US&page=1";
+    $now_playing_movies = fetchTmdbMovies($url_now);
+
+    // Top Rated (Replaces Popular to avoid duplicates)
+    $url_top = "https://api.themoviedb.org/3/movie/top_rated?api_key=$api_key&language=en-US&page=1";
+    $top_rated_movies = fetchTmdbMovies($url_top);
+
+    // Coming Soon
+    $url_upcoming = "https://api.themoviedb.org/3/movie/upcoming?api_key=$api_key&language=en-US&page=1";
+    $upcoming_movies = fetchTmdbMovies($url_upcoming);
+}
 ?>
 
 <!DOCTYPE html>
@@ -29,13 +51,15 @@ $movies = isset($movies_data['results']) ? $movies_data['results'] : [];
     <meta charset="UTF-8">
     <title>REVCOM - Dashboard</title>
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,800" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body {
             font-family: 'Montserrat', sans-serif;
             background: linear-gradient(to right, #210b0c, #dd353d, #210b0c);
             margin: 0;
-            padding: 100px;
+            padding-top: 100px;
+            padding-bottom: 50px;
             min-height: 100vh;
             color: #fff;
         }
@@ -56,13 +80,14 @@ $movies = isset($movies_data['results']) ? $movies_data['results'] : [];
         }
 
         header.scrolled {
-            background: rgba(0, 0, 0, 0.90);
+            background: rgba(0, 0, 0, 0.95);
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
 
         header h1 {
             font-size: 24px;
             font-weight: 800;
+            margin: 0;
         }
 
         header h1 a {
@@ -75,18 +100,16 @@ $movies = isset($movies_data['results']) ? $movies_data['results'] : [];
         header h1 a:hover {
             color: #dd353d;
             opacity: 1;
-            text-shadow:
-            0 0 10px rgba(221, 53, 61, 0.4);
-
+            text-shadow: 0 0 10px rgba(221, 53, 61, 0.4);
         }
 
         .logout {
             background: #fff;
             color: #dd353d;
             border: 2px solid transparent;
-            border-radius: 50px;
             padding: 10px 24px;
             border-radius: 50px;
+            font-family: 'Quicksand', sans-serif;
             font-weight: 800;
             font-size: 13px;
             text-transform: capitalize;
@@ -94,6 +117,9 @@ $movies = isset($movies_data['results']) ? $movies_data['results'] : [];
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
         .logout:hover {
             background: #dd353d;
@@ -102,25 +128,37 @@ $movies = isset($movies_data['results']) ? $movies_data['results'] : [];
             box-shadow: 0 6px 15px rgba(221,53,61,0.5);
         }
 
+        /* --- CATEGORY HEADERS --- */
+        .category-title {
+            margin-left: 40px;
+            margin-top: 40px;
+            font-size: 28px;
+            font-weight: 800;
+            border-left: 5px solid #fff;
+            padding-left: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* --- FIXED SIZE CARDS --- */
         .movie-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 25px;
-            padding: 40px 20px;
+            display: flex;
+            flex-wrap: wrap;
             justify-content: center;
+            gap: 25px;
+            padding: 20px 40px;
         }
 
         .movie-card {
             background: #fff;
             color: #000;
-            width: auto;
+            width: 220px;       /* Fixed Compact Width */
             border-radius: 15px;
             box-shadow: 0 6px 15px rgba(0,0,0,0.2);
             overflow: hidden;
             transition: transform 0.3s, box-shadow 0.3s;
             display: flex;
             flex-direction: column;
-            height: 100%;
         }
 
         .movie-card:hover {
@@ -183,7 +221,6 @@ $movies = isset($movies_data['results']) ? $movies_data['results'] : [];
                 width: 80%;
             }
         }
-
     </style>
 </head>
 <body>
@@ -214,16 +251,70 @@ $movies = isset($movies_data['results']) ? $movies_data['results'] : [];
     </div>
 </header>
 
-<div class="movie-container">
-    <?php foreach($movies as $movie): ?>
-        <div class="movie-card">
-            <img src="https://image.tmdb.org/t/p/w500<?php echo $movie['poster_path']; ?>" alt="<?php echo $movie['title']; ?>">
-            <h3><?php echo $movie['title']; ?></h3>
-            <p>⭐Rating: <b><?php echo number_format($movie['vote_average'], 1); ?></b>/10</p>
-            <button class="review-btn" onclick="window.location.href='reviews.php?movie_id=<?php echo $movie['id']; ?>'">Write Review ✎</button>
-        </div>
-    <?php endforeach; ?>
-</div>
+<?php if (!empty($search_query)): ?>
+    
+    <h2 class="category-title">Search Results for "<?php echo htmlspecialchars($_GET['search']); ?>"</h2>
+    <div class="movie-container">
+        <?php if(empty($search_results)): ?>
+            <p style="margin-left: 40px;">No movies found.</p>
+        <?php else: ?>
+            <?php foreach($search_results as $movie): ?>
+                <div class="movie-card">
+                    <?php $image = $movie['poster_path'] ? "https://image.tmdb.org/t/p/w500".$movie['poster_path'] : "https://via.placeholder.com/500x750?text=No+Image"; ?>
+                    <img src="<?php echo $image; ?>" alt="<?php echo $movie['title']; ?>">
+                    <h3><?php echo $movie['title']; ?></h3>
+                    <p>⭐Rating: <b><?php echo number_format($movie['vote_average'], 1); ?></b>/10</p>
+                    <button class="review-btn" onclick="window.location.href='reviews.php?movie_id=<?php echo $movie['id']; ?>'">Write Review ✎</button>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+
+<?php else: ?>
+
+    <h2 class="category-title">In Theaters Now 🎟️</h2>
+    <div class="movie-container">
+        <?php foreach($now_playing_movies as $movie): ?>
+            <div class="movie-card">
+                <img src="https://image.tmdb.org/t/p/w500<?php echo $movie['poster_path']; ?>" alt="<?php echo $movie['title']; ?>">
+                <h3><?php echo $movie['title']; ?></h3>
+                <p>⭐Rating: <b><?php echo number_format($movie['vote_average'], 1); ?></b>/10</p>
+                <button class="review-btn" onclick="window.location.href='reviews.php?movie_id=<?php echo $movie['id']; ?>'">Write Review ✎</button>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
+    <h2 class="category-title">All-Time Best 🏆</h2>
+    <div class="movie-container">
+        <?php foreach($top_rated_movies as $movie): ?>
+            <div class="movie-card">
+                <img src="https://image.tmdb.org/t/p/w500<?php echo $movie['poster_path']; ?>" alt="<?php echo $movie['title']; ?>">
+                <h3><?php echo $movie['title']; ?></h3>
+                <p>⭐Rating: <b><?php echo number_format($movie['vote_average'], 1); ?></b>/10</p>
+                <button class="review-btn" onclick="window.location.href='reviews.php?movie_id=<?php echo $movie['id']; ?>'">Write Review ✎</button>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
+    <h2 class="category-title">Coming Soon 🍿</h2>
+    <div class="movie-container">
+        <?php foreach($upcoming_movies as $movie): ?>
+            <div class="movie-card">
+                <img src="https://image.tmdb.org/t/p/w500<?php echo $movie['poster_path']; ?>" alt="<?php echo $movie['title']; ?>">
+                <h3><?php echo $movie['title']; ?></h3>
+                <p>
+                    <?php if($movie['vote_average'] > 0): ?>
+                        ⭐Rating: <b><?php echo number_format($movie['vote_average'], 1); ?></b>/10
+                    <?php else: ?>
+                        📅 Release: <?php echo $movie['release_date']; ?>
+                    <?php endif; ?>
+                </p>
+                <button class="review-btn" onclick="window.location.href='reviews.php?movie_id=<?php echo $movie['id']; ?>'">Write Review ✎</button>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
+<?php endif; ?>
 
 <script src="script.js"></script>
 </body>
