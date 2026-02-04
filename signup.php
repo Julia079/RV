@@ -51,7 +51,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
 <div class="container" id="container">
     <div class="form-container sign-up-container">
-        <form action="" method="POST">
+        <form action="signup.php" method="POST">
             <h1>Create Account</h1>
             <input type="text" placeholder="Username" name="username" required
                    pattern="[A-Za-z0-9_]{3,20}" 
