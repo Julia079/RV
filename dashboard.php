@@ -19,9 +19,9 @@ function fetchTmdbMovies($url) {
 }
 
 // Initialize arrays
-$now_playing_movies = []; // THE PRESENT
-$top_rated_movies = [];   // THE BEST (Replaces redundant "Popular")
-$upcoming_movies = [];    // THE FUTURE
+$now_playing_movies = []; 
+$top_rated_movies = [];   
+$upcoming_movies = [];    
 $search_results = [];
 
 if (!empty($search_query)) {
@@ -29,19 +29,40 @@ if (!empty($search_query)) {
     $url = "https://api.themoviedb.org/3/search/movie?api_key=$api_key&query=$search_query&language=en-US&page=1";
     $search_results = fetchTmdbMovies($url);
 } else {
-    // 2. DASHBOARD MODE (Distinct Categories)
+    // 2. DASHBOARD MODE
     
     // In Theaters Now
-    $url_now = "https://api.themoviedb.org/3/movie/now_playing?api_key=$api_key&language=en-US&page=1";
-    $now_playing_movies = fetchTmdbMovies($url_now);
+    $now_playing_movies = fetchTmdbMovies("https://api.themoviedb.org/3/movie/now_playing?api_key=$api_key&language=en-US&page=1");
 
-    // Top Rated (Replaces Popular to avoid duplicates)
-    $url_top = "https://api.themoviedb.org/3/movie/top_rated?api_key=$api_key&language=en-US&page=1";
-    $top_rated_movies = fetchTmdbMovies($url_top);
+    // Top Rated
+    $top_rated_movies = fetchTmdbMovies("https://api.themoviedb.org/3/movie/top_rated?api_key=$api_key&language=en-US&page=1");
 
-    // Coming Soon
-    $url_upcoming = "https://api.themoviedb.org/3/movie/upcoming?api_key=$api_key&language=en-US&page=1";
-    $upcoming_movies = fetchTmdbMovies($url_upcoming);
+    // ============================================================
+    // FIXED: UPCOMING MOVIES (Using Official /movie/upcoming)
+    // ============================================================
+    
+    // 1. Use the Official Endpoint
+    // We add region=US because it usually has the most accurate 'future' dates. 
+    // Without a region, the dates can be very mixed.
+    $url_upcoming = "https://api.themoviedb.org/3/movie/upcoming?api_key=$api_key&language=en-US&page=1&region=US";
+    $raw_upcoming = fetchTmdbMovies($url_upcoming);
+
+    // 2. Set Timezone to Philippines
+    date_default_timezone_set('Asia/Manila'); 
+    $today_timestamp = strtotime(date('Y-m-d')); // Today at 00:00:00
+
+    // 3. Filter: STRICTLY remove movies released before today
+    $upcoming_movies = array_filter($raw_upcoming, function($movie) use ($today_timestamp) {
+        if (!isset($movie['release_date']) || empty($movie['release_date'])) return false;
+        
+        $movie_date = strtotime($movie['release_date']);
+        return $movie_date >= $today_timestamp;
+    });
+
+    // 4. Sort: Ensure the closest release dates appear first
+    usort($upcoming_movies, function($a, $b) {
+        return strtotime($a['release_date']) - strtotime($b['release_date']);
+    });
 }
 ?>
 
@@ -296,23 +317,50 @@ if (!empty($search_query)) {
         <?php endforeach; ?>
     </div>
 
-    <h2 class="category-title">Coming Soon 🍿</h2>
-    <div class="movie-container">
-        <?php foreach($upcoming_movies as $movie): ?>
-            <div class="movie-card">
-                <img src="https://image.tmdb.org/t/p/w500<?php echo $movie['poster_path']; ?>" alt="<?php echo $movie['title']; ?>">
-                <h3><?php echo $movie['title']; ?></h3>
-                <p>
-                    <?php if($movie['vote_average'] > 0): ?>
-                        ⭐Rating: <b><?php echo number_format($movie['vote_average'], 1); ?></b>/10
-                    <?php else: ?>
-                        📅 Release: <?php echo $movie['release_date']; ?>
-                    <?php endif; ?>
-                </p>
-                <button class="review-btn" onclick="window.location.href='reviews.php?movie_id=<?php echo $movie['id']; ?>'">Write Review ✎</button>
+    <h2 class="category-title">Upcoming Releases 🍿</h2>
+<div class="movie-container">
+    <?php foreach($upcoming_movies as $up): 
+        // --- LOGIC: Determine the Label ---
+        $release_time = strtotime($up['release_date']);
+        $current_month = date('Ym'); // e.g., 202602
+        $release_month = date('Ym', $release_time);
+        $current_year = date('Y');
+        $release_year = date('Y', $release_time);
+
+        $label = "COMING SOON";
+        $badge_style = "background: #555; color: white;"; // Default Grey
+
+        if ($release_month == $current_month) {
+            $label = "THIS MONTH";
+            $badge_style = "background: #dd353d; color: white; box-shadow: 0 0 10px #dd353d;"; // Glowing Red
+        } elseif ($release_year == $current_year && $release_time > time()) {
+            $label = "THIS YEAR";
+            $badge_style = "background: #fff; color: #dd353d; border: 1px solid #dd353d;"; // White with Red Text
+        }
+    ?>
+
+        <div class="movie-card">
+            <?php 
+            // Fix for missing images
+            $poster = $up['poster_path'] ? "https://image.tmdb.org/t/p/w500".$up['poster_path'] : "https://via.placeholder.com/500x750?text=No+Image"; 
+            ?>
+            <img src="<?php echo $poster; ?>" alt="<?php echo $up['title']; ?>">
+            
+            <h3><?php echo $up['title']; ?></h3>
+            
+            <p style="color: #888; font-size: 13px; margin-bottom: 5px;">
+                📅 <?= date("M d, Y", $release_time); ?>
+            </p>
+
+            <div style="text-align: center; margin-bottom: 15px;">
+                <span style="font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 20px; letter-spacing: 1px; <?php echo $badge_style; ?>">
+                    <?php echo $label; ?>
+                </span>
             </div>
-        <?php endforeach; ?>
-    </div>
+
+        </div>
+    <?php endforeach; ?>
+</div>
 
 <?php endif; ?>
 

@@ -2,7 +2,7 @@
 session_start();
 include "db.php";
 
-// 1. SET TIMEZONE (Fixes the "Just now" vs "8 hours ago" issue)
+// 1. SET TIMEZONE
 date_default_timezone_set('Asia/Manila'); 
 
 $message = "";
@@ -22,22 +22,35 @@ if(!isset($_GET['movie_id'])){
 $movie_id = $_GET['movie_id'];
 $user_id = $_SESSION['user_id'];
 
-// Helper Function: Time Ago
+// --- FIXED FUNCTION: Time Ago ---
 function time_elapsed_string($datetime, $full = false) {
     $now = new DateTime;
     $ago = new DateTime($datetime);
     $diff = $now->diff($ago);
 
-    $diff->w = floor($diff->d / 7);
-    $diff->d -= $diff->w * 7;
+    // Calculate values manually to avoid PHP 8.2+ errors
+    $weeks = floor($diff->d / 7);
+    $days = $diff->d - ($weeks * 7);
 
+    // Map values to labels
     $string = array(
+        'y' => $diff->y,
+        'm' => $diff->m,
+        'w' => $weeks,
+        'd' => $days,
+        'h' => $diff->h,
+        'i' => $diff->i,
+        's' => $diff->s,
+    );
+
+    $labels = array(
         'y' => 'year', 'm' => 'month', 'w' => 'week',
         'd' => 'day', 'h' => 'hr', 'i' => 'min', 's' => 'sec',
     );
-    foreach ($string as $k => &$v) {
-        if ($diff->$k) {
-            $v = $diff->$k . ' ' . $v . ($diff->$k > 1 ? 's' : '');
+
+    foreach ($string as $k => $v) {
+        if ($v > 0) {
+            $string[$k] = $v . ' ' . $labels[$k] . ($v > 1 ? 's' : '');
         } else {
             unset($string[$k]);
         }
@@ -45,7 +58,7 @@ function time_elapsed_string($datetime, $full = false) {
 
     if (!$string) return 'just now';
     $string = array_slice($string, 0, 1);
-    return $string ? implode(', ', $string) . ' ago' : 'just now';
+    return implode(', ', $string) . ' ago';
 }
 
 // 4. Handle Form Submission
@@ -53,13 +66,12 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     if(isset($_POST['review']) && trim($_POST['review']) !== '') {
         $review = trim($_POST['review']);
         $movie_title = $_POST['movie_title']; 
-        $rating = isset($_POST['rating']) ? (int)$_POST['rating'] : 5; // Default to 5
+        $rating = isset($_POST['rating']) ? (int)$_POST['rating'] : 5;
         
         $stmt = $conn->prepare("INSERT INTO tbl_movie_review (user_id, movie_id, movie_title, review, rating) VALUES (?, ?, ?, ?, ?)");
         $stmt->bind_param("iissi", $user_id, $movie_id, $movie_title, $review, $rating);
         
         if($stmt->execute()){
-            // FIX: Post-Redirect-Get Pattern prevents duplicate submissions on refresh
             header("Location: reviews.php?movie_id=$movie_id&status=success");
             exit();
         } else {
@@ -71,7 +83,6 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Check for success message from redirect
 if (isset($_GET['status']) && $_GET['status'] == 'success') {
     $message = "Review published successfully!";
 }
@@ -140,22 +151,18 @@ $similar_movies = isset($sim_data['results']) ? array_slice($sim_data['results']
             z-index: -1;
         }
 
-        /* --- CENTERED PAGE WRAPPER --- */
         .page-wrapper {
             width: 100%;
             max-width: 1200px;
             margin: 0 auto;
             padding: 40px 20px;
-            
-            /* Flexbox Centering */
             display: flex;
             flex-direction: column;
-            align-items: center;      /* Horizontal Center */
-            justify-content: center;  /* Vertical Center */
-            min-height: 100vh;        /* Ensure full height */
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
         }
 
-        /* --- MAIN LAYOUT (Form + Reviews) --- */
         .main-layout {
             display: flex;
             gap: 30px;
@@ -164,7 +171,6 @@ $similar_movies = isset($sim_data['results']) ? array_slice($sim_data['results']
             margin-bottom: 50px;
         }
 
-        /* LEFT SIDE: Write Review */
         .form-container {
             flex: 1;
             background-color: #fff;
@@ -177,7 +183,6 @@ $similar_movies = isset($sim_data['results']) ? array_slice($sim_data['results']
             top: 30px;
         }
 
-        /* RIGHT SIDE: Read Reviews */
         .comments-container {
             flex: 1.5;
             background-color: rgba(255, 255, 255, 0.95);
@@ -196,13 +201,27 @@ $similar_movies = isset($sim_data['results']) ? array_slice($sim_data['results']
             box-shadow: 0 5px 15px rgba(0,0,0,0.3); margin-bottom: 15px;
         }
 
-        /* Star Rating Input */
         .star-rating {
-            display: flex; flex-direction: row-reverse; justify-content: center; gap: 5px; margin-bottom: 15px;
+            display: flex; 
+            flex-direction: row-reverse; 
+            justify-content: center; 
+            gap: 2px; /* Reduced gap for 10 stars */
+            margin-bottom: 15px;
         }
         .star-rating input { display: none; }
-        .star-rating label { font-size: 24px; color: #ccc; cursor: pointer; transition: color 0.2s; }
-        .star-rating input:checked ~ label, .star-rating label:hover, .star-rating label:hover ~ label { color: #ffc107; }
+        .star-rating label { 
+            font-size: 20px; /* Smaller font to fit 10 stars */
+            color: #ccc; 
+            cursor: pointer; 
+            transition: color 0.2s; 
+            width: 20px; /* Fixed width for alignment */
+            text-align: center;
+        }
+        .star-rating input:checked ~ label, 
+        .star-rating label:hover, 
+        .star-rating label:hover ~ label { 
+            color: #ffc107; 
+        }
 
         form textarea {
             width: 100%; padding: 15px; border-radius: 15px; border: 2px solid #eee;
@@ -263,7 +282,6 @@ $similar_movies = isset($sim_data['results']) ? array_slice($sim_data['results']
         .comments-container::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
         .comments-container::-webkit-scrollbar-thumb:hover { background: #dd353d; }
 
-        /* --- RECOMMENDATION SECTION CSS --- */
         .rec-section { width: 100%; }
         .rec-title {
             font-size: 20px; font-weight: 800; text-transform: uppercase;
@@ -294,7 +312,13 @@ $similar_movies = isset($sim_data['results']) ? array_slice($sim_data['results']
 </head>
 <body>
 
-<a href="dashboard.php" class="back-link-float">← Dashboard</a>
+<a href="dashboard.php" class="back-link-float">
+    <i class="fa-solid fa-house"></i> Dashboard
+</a>
+
+<a href="javascript:history.back()" class="back-link-float" style="top: 80px;">
+    <i class="fa-solid fa-arrow-left"></i> Go Back
+</a>
 
 <div class="page-wrapper">
 
@@ -310,13 +334,12 @@ $similar_movies = isset($sim_data['results']) ? array_slice($sim_data['results']
                 <input type="hidden" name="movie_id" value="<?= $movie_id; ?>">
                 <input type="hidden" name="movie_title" value="<?= htmlspecialchars($movie['title']); ?>">
                 
-                <div class="star-rating">
-                    <input type="radio" id="star5" name="rating" value="5" /><label for="star5" title="5 stars">★</label>
-                    <input type="radio" id="star4" name="rating" value="4" /><label for="star4" title="4 stars">★</label>
-                    <input type="radio" id="star3" name="rating" value="3" /><label for="star3" title="3 stars">★</label>
-                    <input type="radio" id="star2" name="rating" value="2" /><label for="star2" title="2 stars">★</label>
-                    <input type="radio" id="star1" name="rating" value="1" /><label for="star1" title="1 star">★</label>
-                </div>
+            <div class="star-rating">
+                <?php for($i = 10; $i >= 1; $i--): ?>
+                    <input type="radio" id="star<?= $i ?>" name="rating" value="<?= $i ?>" />
+                    <label for="star<?= $i ?>" title="<?= $i ?> stars">★</label>
+                <?php endfor; ?>
+            </div>
                 
                 <textarea name="review" placeholder="Write your review here..." required></textarea>
                 <button type="submit">Publish Review <i class="fa-solid fa-paper-plane"></i></button>
