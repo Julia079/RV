@@ -1,7 +1,6 @@
 <?php
 session_start();
 include "db.php";
-
 $message = "";
 $message_class = "";
 
@@ -20,10 +19,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } else {
         $stmt->bind_result($id, $username, $hashed);
         $stmt->fetch();
-
+        $hashed = $hashed ?? ''; // Ensure $hashed is a string
         if(password_verify($password, $hashed)){
             $_SESSION['user_id'] = $id;
-            $_SESSION['username'] = $username; 
+
+            $_SESSION['username'] = $username;
 
             header("Location:dashboard.php");
             exit();
@@ -32,7 +32,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $message_class = "warning";
         }
     }
-
     $stmt->close();
     $conn->close();
 }

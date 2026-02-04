@@ -54,7 +54,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <form action="" method="POST">
             <h1>Create Account</h1>
             <input type="text" placeholder="Username" name="username" required
-                   pattern="[A-Za-z0-9_]{3,20}" 
+                   pattern="[A-Za-z0-9_]{3,20}"
                    title="3-20 characters: letters, numbers, underscores"/>
             <input type="text" placeholder="Name" name="name" required
                    pattern="[A-Za-z\s]{3,50}" title="3-50 letters and spaces only"/>
